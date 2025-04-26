@@ -11,3 +11,8 @@ dependencies = [
   "jax",
   "flax",
 ]
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit",
+]
