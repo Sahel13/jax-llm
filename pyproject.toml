@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jax_llm"
+version = "0.0.1"
+description = "A pedagogical implementation of a language model in JAX."
+authors = [{name = "Sahel Iqbal", email = "sahel13miqbal@proton.me"}]
+dependencies = [
+  "jax",
+  "flax",
+]
