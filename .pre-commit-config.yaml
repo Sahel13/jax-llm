@@ -1,10 +1,15 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    # Latest Ruff version as of April 2025
     rev: v0.11.7
     hooks:
-      # Run the linter
       - id: ruff
-      #   args: [--fix]
-      # Run the formatter
+        args: [--fix]
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        name: isort (python)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.7
+    hooks:
       - id: ruff-format
