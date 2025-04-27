@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 from flax import nnx
+from jax import Array
 from jax.typing import ArrayLike
 
 
@@ -11,7 +12,7 @@ class TokenAndPositionEmbedding(nnx.Module):
         # TODO: Use rotary positional embeddings.
         self.position_embedding = nnx.Embed(max_len, embed_dim, rngs=rngs)
 
-    def __call__(self, tokens: ArrayLike):
+    def __call__(self, tokens: ArrayLike) -> Array:
         token_embeddings = self.token_embedding(tokens)
         positions = jnp.arange(tokens.shape[-1])[None]
         position_embeddings = self.position_embedding(positions)
