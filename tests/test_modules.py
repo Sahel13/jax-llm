@@ -3,7 +3,7 @@ import pytest
 from jax import numpy as jnp
 from jax import random
 
-from jax_llm.transformer import dot_product_attention
+from jax_llm.modules import dot_product_attention
 
 
 @pytest.mark.parametrize("seed", [0, 42, 123])
