@@ -16,7 +16,7 @@ def dot_product_attention(queries: Array, keys: Array, values: Array) -> Array:
 
     Q = queries.shape[1]
     mask = jnp.tril(jnp.ones((Q, Q), dtype=jnp.bool_))
-    logits = jnp.where(mask is True, logits, large_negative_number(logits.dtype))
+    logits = jnp.where(mask, logits, large_negative_number(logits.dtype))
     probs = jax.nn.softmax(logits)
 
     return jnp.einsum("...HQK,...KHD->...QHD", probs, values)
