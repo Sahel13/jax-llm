@@ -46,13 +46,10 @@ def dot_product_attention(queries: Array, keys: Array, values: Array) -> Array:
 class CausalSelfAttention(nnx.Module):
     def __init__(self, embed_dim: int, head_dim: int, num_heads: int, rngs: nnx.Rngs):
         self.qkv_proj = nnx.LinearGeneral(
-            in_features=embed_dim, out_features=(num_heads, 3 * head_dim), rngs=rngs
+            embed_dim, (num_heads, 3 * head_dim), rngs=rngs
         )
         self.output_proj = nnx.LinearGeneral(
-            in_features=(num_heads, head_dim),
-            out_features=embed_dim,
-            axis=(-2, -1),
-            rngs=rngs,
+            (num_heads, head_dim), embed_dim, axis=(-2, -1), rngs=rngs
         )
 
     def __call__(self, x: ArrayLike) -> Array:
@@ -72,8 +69,8 @@ class Block(nnx.Module):
     ):
         self.attention = CausalSelfAttention(embed_dim, head_dim, num_heads, rngs)
         self.ff = FeedForward(embed_dim, ff_hidden_dim, rngs=rngs)
-        self.layer_norm1 = nnx.LayerNorm(embed_dim)
-        self.layer_norm2 = nnx.LayerNorm(embed_dim)
+        self.layer_norm1 = nnx.LayerNorm(embed_dim, rngs=rngs)
+        self.layer_norm2 = nnx.LayerNorm(embed_dim, rngs=rngs)
 
     def __call__(self, x: ArrayLike) -> Array:
         x += self.attention(self.layer_norm1(x))

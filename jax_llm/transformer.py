@@ -27,7 +27,7 @@ class Transformer(nnx.Module):
         self.embedder = TokenAndPositionEmbedding(
             config.vocab_size, config.embed_dim, config.max_length, rngs=rngs
         )
-        self.blocks = [
+        self.layers = [
             Block(
                 embed_dim=config.embed_dim,
                 head_dim=config.head_dim,
@@ -37,7 +37,7 @@ class Transformer(nnx.Module):
             )
             for _ in range(config.num_layers)
         ]
-        self.final_layer_norm = nnx.LayerNorm(config.embed_dim)
+        self.final_layer_norm = nnx.LayerNorm(config.embed_dim, rngs=rngs)
         self.output_proj = nnx.Linear(
             config.embed_dim, config.vocab_size, use_bias=False, rngs=rngs
         )
@@ -45,8 +45,8 @@ class Transformer(nnx.Module):
     def __call__(self, input_ids: ArrayLike) -> Array:
         x = self.embedder(input_ids)
 
-        for block in self.blocks:
-            x = block(x)
+        for layer in self.layers:
+            x = layer(x)
 
         x = self.final_layer_norm(x)
         return self.output_proj(x)
