@@ -10,6 +10,9 @@ authors = [{name = "Sahel Iqbal", email = "sahel13miqbal@proton.me"}]
 dependencies = [
   "jax",
   "flax",
+  "grain",
+  "tiktoken",
+  "pandas",
 ]
 
 [project.optional-dependencies]
