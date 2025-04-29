@@ -53,7 +53,7 @@ class CausalSelfAttention(nnx.Module):
         )
 
     def __call__(self, x: ArrayLike) -> Array:
-        queries, keys, values = self.qkv_proj(x).split(3, axis=-1)
+        queries, keys, values = jnp.split(self.qkv_proj(x), 3, axis=-1)
         outputs = dot_product_attention(queries, keys, values)
         return self.output_proj(outputs)
 
