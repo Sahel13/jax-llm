@@ -1,5 +1,6 @@
 from typing import NamedTuple
 
+import jax.numpy as jnp
 from flax import nnx
 from jax import Array
 from jax.typing import ArrayLike
@@ -37,9 +38,15 @@ class Transformer(nnx.Module):
             )
             for _ in range(config.num_layers)
         ]
-        self.final_layer_norm = nnx.LayerNorm(config.embed_dim, rngs=rngs)
+        self.final_layer_norm = nnx.LayerNorm(
+            config.embed_dim, dtype=jnp.bfloat16, rngs=rngs
+        )
         self.output_proj = nnx.Linear(
-            config.embed_dim, config.vocab_size, use_bias=False, rngs=rngs
+            config.embed_dim,
+            config.vocab_size,
+            use_bias=False,
+            dtype=jnp.bfloat16,
+            rngs=rngs,
         )
 
     def __call__(self, input_ids: ArrayLike) -> Array:

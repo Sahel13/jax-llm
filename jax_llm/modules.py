@@ -10,9 +10,9 @@ class FeedForward(nnx.Module):
 
     def __init__(self, features: int, hidden_dim: int, rngs: nnx.Rngs):
         # TODO: Check which initialization to use.
-        self.gate_proj = nnx.Linear(features, hidden_dim, rngs=rngs)
-        self.up_proj = nnx.Linear(features, hidden_dim, rngs=rngs)
-        self.down_proj = nnx.Linear(hidden_dim, features, rngs=rngs)
+        self.gate_proj = nnx.Linear(features, hidden_dim, dtype=jnp.bfloat16, rngs=rngs)
+        self.up_proj = nnx.Linear(features, hidden_dim, dtype=jnp.bfloat16, rngs=rngs)
+        self.down_proj = nnx.Linear(hidden_dim, features, dtype=jnp.bfloat16, rngs=rngs)
 
     def __call__(self, x: ArrayLike) -> Array:
         ff_gate = self.gate_proj(x)
@@ -38,7 +38,7 @@ def dot_product_attention(queries: Array, keys: Array, values: Array) -> Array:
     Q = queries.shape[1]
     mask = jnp.tril(jnp.ones((Q, Q), dtype=jnp.bool_))
     logits = jnp.where(mask, logits, large_negative_number(logits.dtype))
-    probs = jax.nn.softmax(logits)
+    probs = jax.nn.softmax(logits.astype(jnp.float32)).astype(logits.dtype)
 
     return jnp.einsum("...HQK,...KHD->...QHD", probs, values)
 
@@ -46,10 +46,14 @@ def dot_product_attention(queries: Array, keys: Array, values: Array) -> Array:
 class CausalSelfAttention(nnx.Module):
     def __init__(self, embed_dim: int, head_dim: int, num_heads: int, rngs: nnx.Rngs):
         self.qkv_proj = nnx.LinearGeneral(
-            embed_dim, (num_heads, 3 * head_dim), rngs=rngs
+            embed_dim, (num_heads, 3 * head_dim), dtype=jnp.bfloat16, rngs=rngs
         )
         self.output_proj = nnx.LinearGeneral(
-            (num_heads, head_dim), embed_dim, axis=(-2, -1), rngs=rngs
+            (num_heads, head_dim),
+            embed_dim,
+            axis=(-2, -1),
+            dtype=jnp.bfloat16,
+            rngs=rngs,
         )
 
     def __call__(self, x: ArrayLike) -> Array:
@@ -69,8 +73,8 @@ class Block(nnx.Module):
     ):
         self.attention = CausalSelfAttention(embed_dim, head_dim, num_heads, rngs)
         self.ff = FeedForward(embed_dim, ff_hidden_dim, rngs=rngs)
-        self.layer_norm1 = nnx.LayerNorm(embed_dim, rngs=rngs)
-        self.layer_norm2 = nnx.LayerNorm(embed_dim, rngs=rngs)
+        self.layer_norm1 = nnx.LayerNorm(embed_dim, dtype=jnp.bfloat16, rngs=rngs)
+        self.layer_norm2 = nnx.LayerNorm(embed_dim, dtype=jnp.bfloat16, rngs=rngs)
 
     def __call__(self, x: ArrayLike) -> Array:
         x += self.attention(self.layer_norm1(x))

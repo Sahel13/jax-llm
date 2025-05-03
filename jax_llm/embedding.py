@@ -10,9 +10,13 @@ class TokenAndPositionEmbedding(nnx.Module):
     def __init__(
         self, vocab_size: int, embed_dim: int, seq_length: int, rngs: nnx.Rngs
     ):
-        self.token_embedding = nnx.Embed(vocab_size, embed_dim, rngs=rngs)
+        self.token_embedding = nnx.Embed(
+            vocab_size, embed_dim, dtype=jnp.bfloat16, rngs=rngs
+        )
         # TODO: Use rotary positional embeddings.
-        self.position_embedding = nnx.Embed(seq_length, embed_dim, rngs=rngs)
+        self.position_embedding = nnx.Embed(
+            seq_length, embed_dim, dtype=jnp.bfloat16, rngs=rngs
+        )
 
     def __call__(self, tokens: ArrayLike) -> Array:
         token_embeddings = self.token_embedding(tokens)
