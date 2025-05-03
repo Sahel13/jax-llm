@@ -8,11 +8,13 @@ from jax.typing import ArrayLike
 class FeedForward(nnx.Module):
     """Feedforward neural network with GeGLU activation."""
 
-    def __init__(self, features: int, hidden_dim: int, rngs: nnx.Rngs):
+    def __init__(
+        self, features: int, hidden_dim: int, *, dtype: jnp.dtype, rngs: nnx.Rngs
+    ):
         # TODO: Check which initialization to use.
-        self.gate_proj = nnx.Linear(features, hidden_dim, dtype=jnp.bfloat16, rngs=rngs)
-        self.up_proj = nnx.Linear(features, hidden_dim, dtype=jnp.bfloat16, rngs=rngs)
-        self.down_proj = nnx.Linear(hidden_dim, features, dtype=jnp.bfloat16, rngs=rngs)
+        self.gate_proj = nnx.Linear(features, hidden_dim, dtype=dtype, rngs=rngs)
+        self.up_proj = nnx.Linear(features, hidden_dim, dtype=dtype, rngs=rngs)
+        self.down_proj = nnx.Linear(hidden_dim, features, dtype=dtype, rngs=rngs)
 
     def __call__(self, x: ArrayLike) -> Array:
         ff_gate = self.gate_proj(x)
@@ -44,15 +46,23 @@ def dot_product_attention(queries: Array, keys: Array, values: Array) -> Array:
 
 
 class CausalSelfAttention(nnx.Module):
-    def __init__(self, embed_dim: int, head_dim: int, num_heads: int, rngs: nnx.Rngs):
+    def __init__(
+        self,
+        embed_dim: int,
+        head_dim: int,
+        num_heads: int,
+        *,
+        dtype: jnp.dtype,
+        rngs: nnx.Rngs,
+    ):
         self.qkv_proj = nnx.LinearGeneral(
-            embed_dim, (num_heads, 3 * head_dim), dtype=jnp.bfloat16, rngs=rngs
+            embed_dim, (num_heads, 3 * head_dim), dtype=dtype, rngs=rngs
         )
         self.output_proj = nnx.LinearGeneral(
             (num_heads, head_dim),
             embed_dim,
             axis=(-2, -1),
-            dtype=jnp.bfloat16,
+            dtype=dtype,
             rngs=rngs,
         )
 
@@ -69,12 +79,16 @@ class Block(nnx.Module):
         head_dim: int,
         num_heads: int,
         ff_hidden_dim: int,
+        *,
+        dtype: jnp.dtype,
         rngs: nnx.Rngs,
     ):
-        self.attention = CausalSelfAttention(embed_dim, head_dim, num_heads, rngs)
-        self.ff = FeedForward(embed_dim, ff_hidden_dim, rngs=rngs)
-        self.layer_norm1 = nnx.LayerNorm(embed_dim, dtype=jnp.bfloat16, rngs=rngs)
-        self.layer_norm2 = nnx.LayerNorm(embed_dim, dtype=jnp.bfloat16, rngs=rngs)
+        self.attention = CausalSelfAttention(
+            embed_dim, head_dim, num_heads, dtype=dtype, rngs=rngs
+        )
+        self.ff = FeedForward(embed_dim, ff_hidden_dim, dtype=dtype, rngs=rngs)
+        self.layer_norm1 = nnx.LayerNorm(embed_dim, dtype=dtype, rngs=rngs)
+        self.layer_norm2 = nnx.LayerNorm(embed_dim, dtype=dtype, rngs=rngs)
 
     def __call__(self, x: ArrayLike) -> Array:
         x += self.attention(self.layer_norm1(x))

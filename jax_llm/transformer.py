@@ -19,6 +19,7 @@ class TransformerConfig(NamedTuple):
     num_heads: int
     num_layers: int
     ff_hidden_dim: int
+    dtype: jnp.dtype = jnp.bfloat16
 
 
 class Transformer(nnx.Module):
@@ -26,7 +27,11 @@ class Transformer(nnx.Module):
 
     def __init__(self, config: TransformerConfig, rngs: nnx.Rngs):
         self.embedder = TokenAndPositionEmbedding(
-            config.vocab_size, config.embed_dim, config.seq_length, rngs=rngs
+            config.vocab_size,
+            config.embed_dim,
+            config.seq_length,
+            dtype=config.dtype,
+            rngs=rngs,
         )
         self.layers = [
             Block(
@@ -34,18 +39,19 @@ class Transformer(nnx.Module):
                 head_dim=config.head_dim,
                 num_heads=config.num_heads,
                 ff_hidden_dim=config.ff_hidden_dim,
+                dtype=config.dtype,
                 rngs=rngs,
             )
             for _ in range(config.num_layers)
         ]
         self.final_layer_norm = nnx.LayerNorm(
-            config.embed_dim, dtype=jnp.bfloat16, rngs=rngs
+            config.embed_dim, dtype=config.dtype, rngs=rngs
         )
         self.output_proj = nnx.Linear(
             config.embed_dim,
             config.vocab_size,
             use_bias=False,
-            dtype=jnp.bfloat16,
+            dtype=config.dtype,
             rngs=rngs,
         )
 
