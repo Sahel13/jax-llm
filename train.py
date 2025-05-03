@@ -1,3 +1,7 @@
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 import time
 from dataclasses import dataclass
 
@@ -124,24 +128,40 @@ if __name__ == "__main__":
         lambda tokens: jnp.concatenate((tokens[1:], jnp.array([0])))
     )
 
+    batch_size_in_tokens = batch_size * model_config.seq_length
+    model_params = nnx.state(model, nnx.Param)
+    model_size = sum(x.size for x in jax.tree.leaves(model_params))
+
+    # Approximate FLOPs in a training step.
+    # This ignore the self-attention layer.
+    approx_flops = 6 * model_size * batch_size_in_tokens
+    flops_per_device = approx_flops / jax.device_count()
+
     step = 0
     for epoch in range(num_epochs):
         start_time = time.time()
         for batch in text_dl:
             if len(batch) % len(jax.devices()) != 0:
                 continue  # skip the remaining elements
-            input_batch = jnp.array(jnp.array(batch).T)
+            input_batch = jnp.array(batch).T
             target_batch = prep_target_batch(input_batch)
             train_step(model, optimizer, metrics, (input_batch, target_batch))
 
             if (step + 1) % 200 == 0:
+                elapsed_time = time.time() - start_time
+
                 for metric, value in metrics.compute().items():
                     metrics_history[f"train_{metric}"].append(value)
                 metrics.reset()
 
-                elapsed_time = time.time() - start_time
+                # Print performance metrics
+                num_tokens_processed = 200 * batch_size_in_tokens
+                tokens_per_second = num_tokens_processed / elapsed_time
+
                 print(
-                    f"Step {step + 1}, Loss: {metrics_history['train_loss'][-1]}, Elapsed Time: {elapsed_time:.2f} seconds"
+                    f"Step {step + 1}, Loss: {metrics_history['train_loss'][-1]:6.3f}, "
+                    f"Tokens/sec: {tokens_per_second:12.2f}, "
+                    f"TFLOPS/device: {flops_per_device * 200 / (1e12 * elapsed_time):6.2f}"
                 )
                 start_time = time.time()
 

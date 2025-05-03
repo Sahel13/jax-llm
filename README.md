@@ -17,3 +17,7 @@ However, the model is not identical, with most changes arising out of the need t
 
 - I use the GPT-2 tokenizer from [_tiktoken_](https://github.com/openai/tiktoken) with a vocab size of 50257, while Gemma uses a tokenizer from [_SentencePiece_](https://github.com/google/sentencepiece) with a vocab size of 256k.
 - I use multi-head attention, while Gemma uses multi-query attention for the smaller versions.
+
+## TODO
+
+- FLOPS calculation in `train.py` appears to be wrong.
