@@ -7,10 +7,12 @@ from jax.typing import ArrayLike
 class TokenAndPositionEmbedding(nnx.Module):
     """Encode tokens and positions into a single embedding."""
 
-    def __init__(self, vocab_size: int, embed_dim: int, max_len: int, rngs: nnx.Rngs):
+    def __init__(
+        self, vocab_size: int, embed_dim: int, seq_length: int, rngs: nnx.Rngs
+    ):
         self.token_embedding = nnx.Embed(vocab_size, embed_dim, rngs=rngs)
         # TODO: Use rotary positional embeddings.
-        self.position_embedding = nnx.Embed(max_len, embed_dim, rngs=rngs)
+        self.position_embedding = nnx.Embed(seq_length, embed_dim, rngs=rngs)
 
     def __call__(self, tokens: ArrayLike) -> Array:
         token_embeddings = self.token_embedding(tokens)

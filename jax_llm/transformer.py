@@ -12,7 +12,7 @@ class TransformerConfig(NamedTuple):
     """Configuration for the GPT model."""
 
     vocab_size: int
-    max_length: int
+    seq_length: int
     embed_dim: int
     head_dim: int
     num_heads: int
@@ -25,7 +25,7 @@ class Transformer(nnx.Module):
 
     def __init__(self, config: TransformerConfig, rngs: nnx.Rngs):
         self.embedder = TokenAndPositionEmbedding(
-            config.vocab_size, config.embed_dim, config.max_length, rngs=rngs
+            config.vocab_size, config.embed_dim, config.seq_length, rngs=rngs
         )
         self.layers = [
             Block(

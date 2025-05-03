@@ -83,7 +83,7 @@ if __name__ == "__main__":
     model_config = TransformerConfig(
         # From the MiniGPT example: https://docs.jaxstack.ai/en/latest/JAX_for_LLM_pretraining
         vocab_size=50257,
-        max_length=256,
+        seq_length=256,
         embed_dim=256,
         head_dim=64,
         num_heads=8,
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         "data/TinyStoriesV2-GPT4-train.txt",
         tokenizer,
         batch_size,
-        model_config.max_length,
+        model_config.seq_length,
         num_epochs,
     )
 
