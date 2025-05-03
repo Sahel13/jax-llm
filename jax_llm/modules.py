@@ -34,13 +34,19 @@ def dot_product_attention(queries: Array, keys: Array, values: Array) -> Array:
         dtype_max = jnp.finfo(dtype).max
         return jnp.asarray(-0.7 * dtype_max, dtype=dtype)
 
-    logits = jnp.einsum("...QHD,...KHD->...HQK", queries, keys)
+    dtype = queries.dtype
+
+    # Dot product and softmax are done in float32 to avoid overflow.
+    # Reference: https://arxiv.org/abs/2312.02696
+    logits = jnp.einsum(
+        "...QHD,...KHD->...HQK", queries.astype(jnp.float32), keys.astype(jnp.float32)
+    )
     logits /= jnp.sqrt(queries.shape[-1])
 
     Q = queries.shape[1]
     mask = jnp.tril(jnp.ones((Q, Q), dtype=jnp.bool_))
     logits = jnp.where(mask, logits, large_negative_number(logits.dtype))
-    probs = jax.nn.softmax(logits.astype(jnp.float32)).astype(logits.dtype)
+    probs = jax.nn.softmax(logits).astype(dtype)
 
     return jnp.einsum("...HQK,...KHD->...QHD", probs, values)
 
