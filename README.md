@@ -1,6 +1,6 @@
 # jax-llm
 
-A pedagogical implementation of a language model in JAX.
+A minimal implementation of a language model in JAX.
 
 ## Installation
 
