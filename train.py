@@ -12,6 +12,8 @@ import optax
 import pandas as pd
 import tiktoken
 from flax import nnx
+from jax.sharding import NamedSharding
+from jax.sharding import PartitionSpec as P
 
 from jax_llm.transformer import Transformer, TransformerConfig
 
@@ -84,6 +86,9 @@ def train_step(
 if __name__ == "__main__":
     # ------------- Hyperparameters ---------- #
 
+    # Set the mesh for sharding
+    mesh = jax.make_mesh((4, 1), ("data", "tensor"))
+
     model_config = TransformerConfig(
         # From the MiniGPT example: https://docs.jaxstack.ai/en/latest/JAX_for_LLM_pretraining
         vocab_size=50257,
@@ -95,7 +100,7 @@ if __name__ == "__main__":
         ff_hidden_dim=256,
     )
 
-    batch_size = 256
+    batch_size = 1024
     num_epochs = 1
 
     # ------------- Initialize model and optimizer ---------- #
@@ -132,17 +137,17 @@ if __name__ == "__main__":
         "train_loss": [],
     }
 
-    prep_target_batch = jax.vmap(
-        lambda tokens: jnp.concatenate((tokens[1:], jnp.array([0])))
+    prep_target_batch = jax.jit(
+        jax.vmap(lambda tokens: jnp.concatenate((tokens[1:], jnp.array([0]))))
     )
 
-    batch_size_in_tokens = batch_size * model_config.seq_length
     model_params = nnx.state(model, nnx.Param)
     model_size = sum(x.size for x in jax.tree.leaves(model_params))
     print(f"Model size: {model_size / 1e6:.2f}M parameters")
 
     # Approximate FLOPs in a training step.
-    # This ignore the self-attention layer.
+    # This ignores the self-attention layer.
+    batch_size_in_tokens = batch_size * model_config.seq_length
     approx_flops = 6 * model_size * batch_size_in_tokens
     flops_per_device = approx_flops / jax.device_count()
 
@@ -151,10 +156,14 @@ if __name__ == "__main__":
     for epoch in range(num_epochs):
         start_time = time.time()
         for batch in text_dl:
-            if len(batch) % len(jax.devices()) != 0:
+            if len(batch) % jax.device_count() != 0:
                 continue  # skip the remaining elements
-            input_batch = jnp.array(batch).T
+
+            input_batch = jnp.array(
+                batch, device=NamedSharding(mesh, P("data", None))
+            ).T
             target_batch = prep_target_batch(input_batch)
+
             train_step(model, optimizer, metrics, (input_batch, target_batch))
 
             if (step + 1) % 200 == 0:
