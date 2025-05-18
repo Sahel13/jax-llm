@@ -1,6 +1,14 @@
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# See https://github.com/NVIDIA/JAX-Toolbox/blob/main/rosetta/docs/GPU_performance.md
+# for details on these environment variables.
+os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.9"
+os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
+os.environ["XLA_FLAGS"] = (
+    "--xla_gpu_triton_gemm_any=True "
+    "--xla_gpu_enable_latency_hiding_scheduler=true "
+    "--xla_gpu_enable_highest_priority_async_stream=true"
+)
 
 import time
 from dataclasses import dataclass
