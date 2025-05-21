@@ -21,3 +21,11 @@ However, the model is not identical, with most changes arising out of the need t
 ## TODO
 
 - FLOPS calculation in `train.py` appears to be wrong.
+
+## Profiling
+
+An updated version of `libstdc++` might be required for the tensorboard profiler to work.
+
+```bash
+conda install -c conda-forge libstdcxx-ng
+```

@@ -159,6 +159,8 @@ if __name__ == "__main__":
     approx_flops = 6 * model_size * batch_size_in_tokens
     flops_per_device = approx_flops / jax.device_count()
 
+    print_every_n_steps = 10
+    jax.profiler.start_trace("tmp/tensorboard")
     # ------------- Training loop ---------- #
     step = 0
     for epoch in range(num_epochs):
@@ -174,7 +176,7 @@ if __name__ == "__main__":
 
             train_step(model, optimizer, metrics, (input_batch, target_batch))
 
-            if (step + 1) % 200 == 0:
+            if (step + 1) % print_every_n_steps == 0:
                 elapsed_time = time.time() - start_time
 
                 for metric, value in metrics.compute().items():
@@ -182,19 +184,23 @@ if __name__ == "__main__":
                 metrics.reset()
 
                 # Print performance metrics
-                num_tokens_processed = 200 * batch_size_in_tokens
+                num_tokens_processed = print_every_n_steps * batch_size_in_tokens
                 tokens_per_second = num_tokens_processed / elapsed_time
 
                 print(
                     f"Step {step + 1}, Loss: {metrics_history['train_loss'][-1]:6.3f}, "
                     f"Tokens/sec: {tokens_per_second:12.2f}, "
-                    f"TFLOPS/device: {flops_per_device * 200 / (1e12 * elapsed_time):6.2f}"
+                    f"TFLOPS/device: {flops_per_device * print_every_n_steps / (1e12 * elapsed_time):6.2f}"
                 )
                 start_time = time.time()
 
                 # generated_text = model.generate_text(model_config.max_length, start_tokens)
                 # print(f"Generated text:\n{generated_text}\n")
             step += 1
+
+            if step == 20:
+                jax.profiler.stop_trace()
+                break
 
     # # Final text generation
     # generated_text = model.generate_text(model_config.max_length, start_tokens)
