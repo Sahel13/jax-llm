@@ -20,7 +20,8 @@ However, the model is not identical, with most changes arising out of the need t
 
 ## TODO
 
-- FLOPS calculation in `train.py` appears to be wrong.
+- [ ] Investigate why the function `train_step` in `train.py` is compiled twice.
+- [ ] FLOPS calculation in `train.py` appears to be wrong.
 
 ## Profiling
 

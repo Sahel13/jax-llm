@@ -74,21 +74,19 @@ def load_and_preprocess_data(
 
 
 def loss_fn(model, batch):
-    logits = model(batch[0])
+    logits = model(batch[0]).astype(jnp.float32)
     loss = optax.softmax_cross_entropy_with_integer_labels(
-        logits=logits.astype(jnp.float32), labels=batch[1]
+        logits=logits, labels=batch[1]
     ).mean()
     return loss, logits
 
 
 @nnx.jit
-def train_step(
-    model: nnx.Module, optimizer: nnx.Optimizer, metrics: nnx.MultiMetric, batch
-):
+def train_step(model: nnx.Module, optimizer: nnx.Optimizer, batch):
     grad_fn = nnx.value_and_grad(loss_fn, has_aux=True)
-    (loss, logits), grads = grad_fn(model, batch)
-    metrics.update(loss=loss, logits=logits, labels=batch[1])
+    (loss, _), grads = grad_fn(model, batch)
     optimizer.update(grads)
+    return loss
 
 
 if __name__ == "__main__":
@@ -115,9 +113,6 @@ if __name__ == "__main__":
 
     model = Transformer(model_config, nnx.Rngs(0))
     optimizer = nnx.Optimizer(model, optax.adam(1e-3))
-    metrics = nnx.MultiMetric(
-        loss=nnx.metrics.Average("loss"),
-    )
 
     # # ------------- Print model summary ---------- #
     # print(
@@ -135,15 +130,6 @@ if __name__ == "__main__":
         model_config.seq_length,
         num_epochs,
     )
-
-    # start_prompt = "Once upon a time"
-    # start_tokens = tokenizer.encode(start_prompt)[: model_config.max_length]
-    # generated_text = model.generate_text(model_config.max_length, start_tokens)
-    # print(f"Initial generated text:\n{generated_text}\n")
-
-    metrics_history = {
-        "train_loss": [],
-    }
 
     prep_target_batch = jax.jit(
         jax.vmap(lambda tokens: jnp.concatenate((tokens[1:], jnp.array([0]))))
@@ -174,34 +160,24 @@ if __name__ == "__main__":
             ).T
             target_batch = prep_target_batch(input_batch)
 
-            train_step(model, optimizer, metrics, (input_batch, target_batch))
+            loss = train_step(model, optimizer, (input_batch, target_batch))
 
             if (step + 1) % print_every_n_steps == 0:
                 elapsed_time = time.time() - start_time
-
-                for metric, value in metrics.compute().items():
-                    metrics_history[f"train_{metric}"].append(value)
-                metrics.reset()
 
                 # Print performance metrics
                 num_tokens_processed = print_every_n_steps * batch_size_in_tokens
                 tokens_per_second = num_tokens_processed / elapsed_time
 
                 print(
-                    f"Step {step + 1}, Loss: {metrics_history['train_loss'][-1]:6.3f}, "
+                    f"Step {step + 1}, Loss: {loss.item():6.3f}, "
                     f"Tokens/sec: {tokens_per_second:12.2f}, "
                     f"TFLOPS/device: {flops_per_device * print_every_n_steps / (1e12 * elapsed_time):6.2f}"
                 )
                 start_time = time.time()
 
-                # generated_text = model.generate_text(model_config.max_length, start_tokens)
-                # print(f"Generated text:\n{generated_text}\n")
             step += 1
 
             if step == 20:
                 jax.profiler.stop_trace()
                 break
-
-    # # Final text generation
-    # generated_text = model.generate_text(model_config.max_length, start_tokens)
-    # print(f"Final generated text:\n{generated_text}")
