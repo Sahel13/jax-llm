@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 import grain.python as pygrain
 import jax
+from jax import Array
 import jax.numpy as jnp
 import optax
 import pandas as pd
@@ -73,7 +74,7 @@ def load_and_preprocess_data(
     )
 
 
-def loss_fn(model, batch):
+def loss_fn(model: nnx.Module, batch: tuple[Array, Array]) -> tuple[Array, Array]:
     logits = model(batch[0]).astype(jnp.float32)
     loss = optax.softmax_cross_entropy_with_integer_labels(
         logits=logits, labels=batch[1]
@@ -82,7 +83,9 @@ def loss_fn(model, batch):
 
 
 @nnx.jit
-def train_step(model: nnx.Module, optimizer: nnx.Optimizer, batch):
+def train_step(
+    model: nnx.Module, optimizer: nnx.Optimizer, batch: tuple[Array, Array]
+) -> Array:
     grad_fn = nnx.value_and_grad(loss_fn, has_aux=True)
     (loss, _), grads = grad_fn(model, batch)
     optimizer.update(grads)
@@ -147,6 +150,7 @@ if __name__ == "__main__":
 
     print_every_n_steps = 10
     jax.profiler.start_trace("tmp/tensorboard")
+
     # ------------- Training loop ---------- #
     step = 0
     for epoch in range(num_epochs):
@@ -178,6 +182,6 @@ if __name__ == "__main__":
 
             step += 1
 
-            if step == 20:
+            if step == 100:
                 jax.profiler.stop_trace()
                 break
