@@ -118,14 +118,14 @@ if __name__ == "__main__":
     with mesh:
         model = initializer()
 
-    optimizer = nnx.Optimizer(model, optax.adam(1e-3))
+        # # Print model summary
+        # print(
+        #     nnx.tabulate(
+        #         model, jnp.ones((batch_size, model_config.seq_length), dtype=jnp.int32)
+        #     )
+        # )
 
-    # # ------------- Print model summary ---------- #
-    # print(
-    #     nnx.tabulate(
-    #         model, jnp.ones((batch_size, model_config.seq_length), dtype=jnp.int32)
-    #     )
-    # )
+    optimizer = nnx.Optimizer(model, optax.adam(1e-3))
 
     # ------------- Load data ---------- #
     tokenizer = tiktoken.get_encoding("gpt2")
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     flops_per_device = approx_flops / jax.device_count()
 
     print_every_n_steps = 10
-    jax.profiler.start_trace("tmp/tensorboard")
+    # jax.profiler.start_trace("tmp/tensorboard")
 
     # ------------- Training loop ---------- #
     step = 0
@@ -187,6 +187,6 @@ if __name__ == "__main__":
 
             step += 1
 
-            if step == 20:
-                jax.profiler.stop_trace()
-                break
+            # if step == 100:
+            #     jax.profiler.stop_trace()
+            #     break

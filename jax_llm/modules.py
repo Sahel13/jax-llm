@@ -12,12 +12,12 @@ class FeedForward(nnx.Module):
     def __init__(
         self, features: int, hidden_dim: int, *, dtype: jnp.dtype, rngs: nnx.Rngs
     ):
-        kernel_init = nnx.with_partitioning(nnx.initializers.normal(), ("fsdp", "tp"))
+        init_fn = nnx.initializers.normal()
         self.gate_proj = nnx.Linear(
             features,
             hidden_dim,
             use_bias=False,
-            kernel_init=kernel_init,
+            kernel_init=nnx.with_partitioning(init_fn, ("fsdp", "tp")),
             dtype=dtype,
             rngs=rngs,
         )
@@ -25,7 +25,7 @@ class FeedForward(nnx.Module):
             features,
             hidden_dim,
             use_bias=False,
-            kernel_init=kernel_init,
+            kernel_init=nnx.with_partitioning(init_fn, ("fsdp", "tp")),
             dtype=dtype,
             rngs=rngs,
         )
@@ -33,7 +33,7 @@ class FeedForward(nnx.Module):
             hidden_dim,
             features,
             use_bias=False,
-            kernel_init=kernel_init,
+            kernel_init=nnx.with_partitioning(init_fn, ("fsdp", "tp")),
             dtype=dtype,
             rngs=rngs,
         )
@@ -86,12 +86,12 @@ class CausalSelfAttention(nnx.Module):
         dtype: jnp.dtype,
         rngs: nnx.Rngs,
     ):
-        kernel_init = nnx.with_partitioning(nnx.initializers.normal(), ("fsdp", "tp"))
+        init_fn = nnx.initializers.normal()
         self.qkv_proj = nnx.LinearGeneral(
             embed_dim,
             (num_heads, 3 * head_dim),
             use_bias=False,
-            kernel_init=kernel_init,
+            kernel_init=nnx.with_partitioning(init_fn, ("fsdp", "tp", None)),
             dtype=dtype,
             rngs=rngs,
         )
@@ -100,7 +100,7 @@ class CausalSelfAttention(nnx.Module):
             embed_dim,
             axis=(-2, -1),
             use_bias=False,
-            kernel_init=kernel_init,
+            kernel_init=nnx.with_partitioning(init_fn, ("fsdp", "tp", None)),
             dtype=dtype,
             rngs=rngs,
         )
