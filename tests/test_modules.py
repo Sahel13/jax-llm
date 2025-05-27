@@ -12,17 +12,17 @@ from jax.sharding import PartitionSpec as P
 from jax_llm.modules import Block, CausalSelfAttention, dot_product_attention
 from jax_llm.utils import initialize_sharded_model_factory
 
-# Skip tests if 4 devices are not available
-pytestmark = pytest.mark.skipif(
-    jax.device_count() != 4,
-    reason="4 devices are not available",
-)
-
 
 @pytest.fixture
 def params():
     """Common model parameters for tests."""
-    mesh = jax.make_mesh((2, 2), ("fsdp", "tp"))
+    if jax.device_count() == 4:
+        mesh = jax.make_mesh((2, 2), ("fsdp", "tp"))
+    elif jax.device_count() == 1:
+        mesh = jax.make_mesh((1, 1), ("fsdp", "tp"))
+    else:
+        raise ValueError("Unsupported device count for this test setup.")
+
     input_sharding = NamedSharding(mesh, P("fsdp", None, "tp"))
     return {
         "batch_size": 8,
