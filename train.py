@@ -25,6 +25,7 @@ from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
 from jax_llm.transformer import Transformer, TransformerConfig
+from jax_llm.utils import initialize_sharded_model
 
 
 @dataclass
@@ -96,7 +97,7 @@ if __name__ == "__main__":
     # ------------- Hyperparameters ---------- #
 
     # Set the mesh for sharding
-    mesh = jax.make_mesh((4, 1), ("data", "tensor"))
+    mesh = jax.make_mesh((4, 1), ("fsdp", "tp"))
 
     model_config = TransformerConfig(
         # From the MiniGPT example: https://docs.jaxstack.ai/en/latest/JAX_for_LLM_pretraining
@@ -113,8 +114,9 @@ if __name__ == "__main__":
     num_epochs = 1
 
     # ------------- Initialize model and optimizer ---------- #
+    with mesh:
+        model = initialize_sharded_model(Transformer, model_config)
 
-    model = Transformer(model_config, nnx.Rngs(0))
     optimizer = nnx.Optimizer(model, optax.adam(1e-3))
 
     # # ------------- Print model summary ---------- #
@@ -160,11 +162,12 @@ if __name__ == "__main__":
                 continue  # skip the remaining elements
 
             input_batch = jnp.array(
-                batch, device=NamedSharding(mesh, P("data", None))
+                batch, device=NamedSharding(mesh, P("fsdp", None))
             ).T
             target_batch = prep_target_batch(input_batch)
 
-            loss = train_step(model, optimizer, (input_batch, target_batch))
+            with mesh:
+                loss = train_step(model, optimizer, (input_batch, target_batch))
 
             if (step + 1) % print_every_n_steps == 0:
                 elapsed_time = time.time() - start_time
@@ -182,6 +185,6 @@ if __name__ == "__main__":
 
             step += 1
 
-            if step == 100:
+            if step == 20:
                 jax.profiler.stop_trace()
                 break
