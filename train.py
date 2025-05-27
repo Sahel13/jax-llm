@@ -15,16 +15,17 @@ from dataclasses import dataclass
 
 import grain.python as pygrain
 import jax
-from jax import Array
 import jax.numpy as jnp
 import optax
 import pandas as pd
 import tiktoken
 from flax import nnx
+from jax import Array
 from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
 from jax_llm.transformer import Transformer, TransformerConfig
+from jax_llm.utils import initialize_sharded_model_factory
 
 
 @dataclass
@@ -96,7 +97,7 @@ if __name__ == "__main__":
     # ------------- Hyperparameters ---------- #
 
     # Set the mesh for sharding
-    mesh = jax.make_mesh((4, 1), ("data", "tensor"))
+    mesh = jax.make_mesh((4, 1), ("fsdp", "tp"))
 
     model_config = TransformerConfig(
         # From the MiniGPT example: https://docs.jaxstack.ai/en/latest/JAX_for_LLM_pretraining
@@ -113,16 +114,18 @@ if __name__ == "__main__":
     num_epochs = 1
 
     # ------------- Initialize model and optimizer ---------- #
+    initializer = initialize_sharded_model_factory(Transformer, model_config)
+    with mesh:
+        model = initializer()
 
-    model = Transformer(model_config, nnx.Rngs(0))
+        # # Print model summary
+        # print(
+        #     nnx.tabulate(
+        #         model, jnp.ones((batch_size, model_config.seq_length), dtype=jnp.int32)
+        #     )
+        # )
+
     optimizer = nnx.Optimizer(model, optax.adam(1e-3))
-
-    # # ------------- Print model summary ---------- #
-    # print(
-    #     nnx.tabulate(
-    #         model, jnp.ones((batch_size, model_config.seq_length), dtype=jnp.int32)
-    #     )
-    # )
 
     # ------------- Load data ---------- #
     tokenizer = tiktoken.get_encoding("gpt2")
@@ -149,7 +152,7 @@ if __name__ == "__main__":
     flops_per_device = approx_flops / jax.device_count()
 
     print_every_n_steps = 10
-    jax.profiler.start_trace("tmp/tensorboard")
+    # jax.profiler.start_trace("tmp/tensorboard")
 
     # ------------- Training loop ---------- #
     step = 0
@@ -159,12 +162,14 @@ if __name__ == "__main__":
             if len(batch) % jax.device_count() != 0:
                 continue  # skip the remaining elements
 
-            input_batch = jnp.array(
-                batch, device=NamedSharding(mesh, P("data", None))
-            ).T
+            input_batch = jnp.array(batch).T
+            input_batch = jax.device_put(
+                input_batch, NamedSharding(mesh, P("fsdp", None))
+            )
             target_batch = prep_target_batch(input_batch)
 
-            loss = train_step(model, optimizer, (input_batch, target_batch))
+            with mesh:
+                loss = train_step(model, optimizer, (input_batch, target_batch))
 
             if (step + 1) % print_every_n_steps == 0:
                 elapsed_time = time.time() - start_time
@@ -182,6 +187,6 @@ if __name__ == "__main__":
 
             step += 1
 
-            if step == 100:
-                jax.profiler.stop_trace()
-                break
+            # if step == 100:
+            #     jax.profiler.stop_trace()
+            #     break

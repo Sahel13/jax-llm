@@ -9,7 +9,8 @@ def test_token_and_position_embedding():
     # Initialize parameters
     vocab_size = 1000
     embed_dim = 256
-    max_len = 1024
+    seq_length = 1024
+    dtype = jnp.bfloat16
     batch_size = 2
     seq_len = 32
 
@@ -20,7 +21,8 @@ def test_token_and_position_embedding():
     embedding_module = TokenAndPositionEmbedding(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
-        max_len=max_len,
+        seq_length=seq_length,
+        dtype=dtype,
         rngs=nnx.Rngs(params=key),
     )
 
