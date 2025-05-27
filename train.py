@@ -15,17 +15,17 @@ from dataclasses import dataclass
 
 import grain.python as pygrain
 import jax
-from jax import Array
 import jax.numpy as jnp
 import optax
 import pandas as pd
 import tiktoken
 from flax import nnx
+from jax import Array
 from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
 from jax_llm.transformer import Transformer, TransformerConfig
-from jax_llm.utils import initialize_sharded_model
+from jax_llm.utils import initialize_sharded_model_factory
 
 
 @dataclass
@@ -114,8 +114,9 @@ if __name__ == "__main__":
     num_epochs = 1
 
     # ------------- Initialize model and optimizer ---------- #
+    initializer = initialize_sharded_model_factory(Transformer, model_config)
     with mesh:
-        model = initialize_sharded_model(Transformer, model_config)
+        model = initializer()
 
     optimizer = nnx.Optimizer(model, optax.adam(1e-3))
 
@@ -161,9 +162,10 @@ if __name__ == "__main__":
             if len(batch) % jax.device_count() != 0:
                 continue  # skip the remaining elements
 
-            input_batch = jnp.array(
-                batch, device=NamedSharding(mesh, P("fsdp", None))
-            ).T
+            input_batch = jnp.array(batch).T
+            input_batch = jax.device_put(
+                input_batch, NamedSharding(mesh, P("fsdp", None))
+            )
             target_batch = prep_target_batch(input_batch)
 
             with mesh:
