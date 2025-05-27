@@ -6,7 +6,8 @@ import jax
 import pytest
 from jax import numpy as jnp
 from jax import random
-from jax.sharding import NamedSharding, PartitionSpec as P
+from jax.sharding import NamedSharding
+from jax.sharding import PartitionSpec as P
 
 from jax_llm.modules import Block, CausalSelfAttention, dot_product_attention
 from jax_llm.utils import initialize_sharded_model_factory

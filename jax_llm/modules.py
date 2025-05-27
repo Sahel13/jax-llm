@@ -2,9 +2,8 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 from jax import Array
-from jax.typing import ArrayLike
-
 from jax.sharding import PartitionSpec as P
+from jax.typing import ArrayLike
 
 
 class FeedForward(nnx.Module):
