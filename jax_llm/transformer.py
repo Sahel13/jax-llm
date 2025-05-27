@@ -44,13 +44,19 @@ class Transformer(nnx.Module):
             )
             for _ in range(config.num_layers)
         ]
-        self.final_layer_norm = nnx.LayerNorm(
-            config.embed_dim, dtype=config.dtype, rngs=rngs
+        self.final_layer_norm = nnx.RMSNorm(
+            config.embed_dim,
+            dtype=config.dtype,
+            scale_init=nnx.initializers.zeros_init(),
+            rngs=rngs,
         )
         self.output_proj = nnx.Linear(
             config.embed_dim,
             config.vocab_size,
             use_bias=False,
+            kernel_init=nnx.with_partitioning(
+                nnx.initializers.normal(), ("fsdp", "tp")
+            ),
             dtype=config.dtype,
             rngs=rngs,
         )

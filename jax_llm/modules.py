@@ -4,6 +4,8 @@ from flax import nnx
 from jax import Array
 from jax.typing import ArrayLike
 
+from jax.sharding import PartitionSpec as P
+
 
 class FeedForward(nnx.Module):
     """Feedforward neural network with GeGLU activation."""
@@ -11,10 +13,31 @@ class FeedForward(nnx.Module):
     def __init__(
         self, features: int, hidden_dim: int, *, dtype: jnp.dtype, rngs: nnx.Rngs
     ):
-        # TODO: Check which initialization to use.
-        self.gate_proj = nnx.Linear(features, hidden_dim, dtype=dtype, rngs=rngs)
-        self.up_proj = nnx.Linear(features, hidden_dim, dtype=dtype, rngs=rngs)
-        self.down_proj = nnx.Linear(hidden_dim, features, dtype=dtype, rngs=rngs)
+        kernel_init = nnx.with_partitioning(nnx.initializers.normal(), ("fsdp", "tp"))
+        self.gate_proj = nnx.Linear(
+            features,
+            hidden_dim,
+            use_bias=False,
+            kernel_init=kernel_init,
+            dtype=dtype,
+            rngs=rngs,
+        )
+        self.up_proj = nnx.Linear(
+            features,
+            hidden_dim,
+            use_bias=False,
+            kernel_init=kernel_init,
+            dtype=dtype,
+            rngs=rngs,
+        )
+        self.down_proj = nnx.Linear(
+            hidden_dim,
+            features,
+            use_bias=False,
+            kernel_init=kernel_init,
+            dtype=dtype,
+            rngs=rngs,
+        )
 
     def __call__(self, x: ArrayLike) -> Array:
         ff_gate = self.gate_proj(x)
@@ -22,6 +45,9 @@ class FeedForward(nnx.Module):
 
         ff_out = self.up_proj(x)
         activations = gate_value * ff_out
+        activations = jax.lax.with_sharding_constraint(
+            activations, P("fsdp", None, "tp")
+        )
 
         return self.down_proj(activations)
 
@@ -61,19 +87,29 @@ class CausalSelfAttention(nnx.Module):
         dtype: jnp.dtype,
         rngs: nnx.Rngs,
     ):
+        kernel_init = nnx.with_partitioning(nnx.initializers.normal(), ("fsdp", "tp"))
         self.qkv_proj = nnx.LinearGeneral(
-            embed_dim, (num_heads, 3 * head_dim), dtype=dtype, rngs=rngs
+            embed_dim,
+            (num_heads, 3 * head_dim),
+            use_bias=False,
+            kernel_init=kernel_init,
+            dtype=dtype,
+            rngs=rngs,
         )
         self.output_proj = nnx.LinearGeneral(
             (num_heads, head_dim),
             embed_dim,
             axis=(-2, -1),
+            use_bias=False,
+            kernel_init=kernel_init,
             dtype=dtype,
             rngs=rngs,
         )
 
     def __call__(self, x: ArrayLike) -> Array:
-        queries, keys, values = jnp.split(self.qkv_proj(x), 3, axis=-1)
+        qkvs = self.qkv_proj(x)
+        qkvs = jax.lax.with_sharding_constraint(qkvs, P("fsdp", None, "tp", None))
+        queries, keys, values = jnp.split(qkvs, 3, axis=-1)
         outputs = dot_product_attention(queries, keys, values)
         return self.output_proj(outputs)
 
@@ -93,10 +129,18 @@ class Block(nnx.Module):
             embed_dim, head_dim, num_heads, dtype=dtype, rngs=rngs
         )
         self.ff = FeedForward(embed_dim, ff_hidden_dim, dtype=dtype, rngs=rngs)
-        self.layer_norm1 = nnx.LayerNorm(embed_dim, dtype=dtype, rngs=rngs)
-        self.layer_norm2 = nnx.LayerNorm(embed_dim, dtype=dtype, rngs=rngs)
+
+        scale_init = nnx.initializers.zeros_init()
+        self.layer_norm1 = nnx.RMSNorm(
+            embed_dim, dtype=dtype, scale_init=scale_init, rngs=rngs
+        )
+        self.layer_norm2 = nnx.RMSNorm(
+            embed_dim, dtype=dtype, scale_init=scale_init, rngs=rngs
+        )
 
     def __call__(self, x: ArrayLike) -> Array:
         x += self.attention(self.layer_norm1(x))
+        x = jax.lax.with_sharding_constraint(x, P("fsdp", None, "tp"))
         x += self.ff(self.layer_norm2(x))
+        x = jax.lax.with_sharding_constraint(x, P("fsdp", None, "tp"))
         return x
